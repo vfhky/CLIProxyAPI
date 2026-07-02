@@ -48,12 +48,12 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
-            ⚠️ CLIProxyAPI 上游合并冲突！
-
-            仓库: vfhky/CLIProxyAPI
-            分支: feat/embeddings ← upstream/main
-            请手动解决冲突后 push。
+            ⚠️ *CLIProxyAPI 上游合并冲突*
+            📦 `vfhky/CLIProxyAPI`
+            🌿 `feat/embeddings` ← `upstream/main`
+            🔗 [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Notify sync success
         if: steps.check.outputs.changed == 'true' && success()
@@ -61,7 +61,9 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
-            🔄 CLIProxyAPI 上游同步完成
-            已合并 upstream/main → feat/embeddings
-            Docker 构建将自动触发。
+            🔄 *CLIProxyAPI 上游同步完成*
+            ✅ `upstream/main` → `feat/embeddings`
+            🚀 Docker 构建自动触发中…
+            🔗 [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

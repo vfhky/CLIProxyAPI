@@ -135,10 +135,13 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
-            ✅ CLIProxyAPI Docker Build Success
-            Registry: ghcr.io | docker.io | tencent-tcr
-            Commit: ${{ github.event.head_commit.message }}
+            ✅ *CLIProxyAPI Docker Build Success*
+            📦 `ghcr.io` \| `docker.io` \| `tencent-tcr`
+            🏷 `latest` `${{ github.sha }}`
+            📝 ${{ github.event.head_commit.message || github.event.commits[0].message || 'manual trigger' }}
+            🔗 [查看运行详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Notify build failure
         if: needs.manifest.result != 'success'
@@ -146,8 +149,9 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
           message: |
-            ❌ CLIProxyAPI Docker Build Failed
-            Branch: feat/embeddings
-            Commit: ${{ github.sha }}
-            See: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            ❌ *CLIProxyAPI Docker Build Failed*
+            🌿 `feat/embeddings`
+            📝 ${{ github.event.head_commit.message || github.event.commits[0].message || 'manual trigger' }}
+            🔗 [查看失败日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
