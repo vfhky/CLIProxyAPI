@@ -8,12 +8,6 @@ on:
 
 env:
   IMAGE_NAME: cliproxyapi
-  # Registry addresses — 替换 <ns> 为实际的命名空间名
-  REGISTRIES: |
-    ghcr.io/vfhky/${IMAGE_NAME}
-    docker.io/vfhky/${IMAGE_NAME}
-    registry.cn-hangzhou.aliyuncs.com/<aliyun-ns>/${IMAGE_NAME}
-    ccr.ccs.tencentyun.com/<tencent-ns>/${IMAGE_NAME}
 
 jobs:
   build:
@@ -52,13 +46,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Login to Aliyun ACR
-        uses: docker/login-action@v3
-        with:
-          registry: registry.cn-hangzhou.aliyuncs.com
-          username: ${{ secrets.ALIYUN_ACR_USERNAME }}
-          password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
-
       - name: Login to Tencent TCR
         uses: docker/login-action@v3
         with:
@@ -79,8 +66,7 @@ jobs:
           tags: |
             ghcr.io/vfhky/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
             docker.io/vfhky/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-            registry.cn-hangzhou.aliyuncs.com/<aliyun-ns>/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-            ccr.ccs.tencentyun.com/<tencent-ns>/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+            ccr.ccs.tencentyun.com/typecodes/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
 
   manifest:
     runs-on: ubuntu-latest
@@ -105,13 +91,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Login to Aliyun ACR
-        uses: docker/login-action@v3
-        with:
-          registry: registry.cn-hangzhou.aliyuncs.com
-          username: ${{ secrets.ALIYUN_ACR_USERNAME }}
-          password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
-
       - name: Login to Tencent TCR
         uses: docker/login-action@v3
         with:
@@ -126,8 +105,7 @@ jobs:
           for REG in \
             "ghcr.io/vfhky/${IMAGE_NAME}" \
             "docker.io/vfhky/${IMAGE_NAME}" \
-            "registry.cn-hangzhou.aliyuncs.com/<aliyun-ns>/${IMAGE_NAME}" \
-            "ccr.ccs.tencentyun.com/<tencent-ns>/${IMAGE_NAME}"
+            "ccr.ccs.tencentyun.com/typecodes/${IMAGE_NAME}"
           do
             docker buildx imagetools create \
               --tag "${REG}:latest" \
@@ -156,7 +134,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           message: |
             ✅ CLIProxyAPI Docker Build Success
-            Registry: ghcr.io | docker.io | aliyun-acr | tencent-tcr
+            Registry: ghcr.io | docker.io | tencent-tcr
             Commit: ${{ github.event.head_commit.message }}
 
       - name: Notify build failure
