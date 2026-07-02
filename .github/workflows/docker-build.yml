@@ -10,8 +10,25 @@ env:
   IMAGE_NAME: cliproxyapi
 
 jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify build started
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          message: |
+            🚀 *CLIProxyAPI Docker Build Started*
+            🌿 `feat/embeddings`
+            🏷 `${{ github.sha }}`
+            📝 ${{ github.event.head_commit.message || github.event.commits[0].message || 'manual trigger' }}
+            🔗 [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
   build:
     runs-on: ubuntu-latest
+    needs: start
     strategy:
       matrix:
         platform:
@@ -129,6 +146,17 @@ jobs:
     needs: manifest
     if: always()
     steps:
+      - name: Calculate duration
+        id: duration
+        run: |
+          START_TS=$(date -d "$(curl -s -H 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
+            -H 'Accept: application/vnd.github+json' \
+            '${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}' \
+            | python3 -c 'import json,sys;print(json.load(sys.stdin)["created_at"])')" +%s)
+          NOW=$(date +%s)
+          ELAPSED=$((NOW - START_TS))
+          echo "elapsed=${ELAPSED}s (~$((ELAPSED / 60))m $((ELAPSED % 60))s)" >> $GITHUB_OUTPUT
+
       - name: Notify build success
         if: needs.manifest.result == 'success'
         uses: appleboy/telegram-action@master
@@ -138,10 +166,11 @@ jobs:
           format: markdown
           message: |
             ✅ *CLIProxyAPI Docker Build Success*
-            📦 `ghcr.io` \| `docker.io` \| `tencent-tcr`
+            🌿 `feat/embeddings`
             🏷 `latest` `${{ github.sha }}`
+            ⏱ ${{ steps.duration.outputs.elapsed }}
             📝 ${{ github.event.head_commit.message || github.event.commits[0].message || 'manual trigger' }}
-            🔗 [查看运行详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            🔗 [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Notify build failure
         if: needs.manifest.result != 'success'
@@ -153,5 +182,7 @@ jobs:
           message: |
             ❌ *CLIProxyAPI Docker Build Failed*
             🌿 `feat/embeddings`
+            🏷 `${{ github.sha }}`
+            ⏱ ${{ steps.duration.outputs.elapsed }}
             📝 ${{ github.event.head_commit.message || github.event.commits[0].message || 'manual trigger' }}
-            🔗 [查看失败日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            🔗 [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
