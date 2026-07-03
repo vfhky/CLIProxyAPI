@@ -1,7 +1,7 @@
 // Package openai provides HTTP handlers for OpenAI API endpoints.
-// This package implements the OpenAI-compatible API interface, including model listing
-// and chat completion functionality. It supports both streaming and non-streaming responses,
-// and manages a pool of clients to interact with backend services.
+// This package implements the OpenAI-compatible API interface, including model listing,
+// chat completion, embeddings, and images/videos functionality. It supports both streaming
+// and non-streaming responses, and manages a pool of clients to interact with backend services.
 // The handlers translate OpenAI API requests to the appropriate backend format and
 // convert responses back to OpenAI-compatible format.
 package openai
@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -734,11 +735,35 @@ func (h *OpenAIAPIHandler) Embeddings(c *gin.Context) {
 	if !inputResult.IsArray() && inputResult.Type != gjson.String {
 		c.JSON(http.StatusBadRequest, handlers.ErrorResponse{
 			Error: handlers.ErrorDetail{
-				Message: "input must be a string or array of strings",
+				Message: "input must be a string, array of strings, or array of integers",
 				Type:    "invalid_request_error",
 			},
 		})
 		return
+	}
+
+	// Validate non-empty input
+	if inputResult.Type == gjson.String {
+		if strings.TrimSpace(inputResult.String()) == "" {
+			c.JSON(http.StatusBadRequest, handlers.ErrorResponse{
+				Error: handlers.ErrorDetail{
+					Message: "input must not be an empty string",
+					Type:    "invalid_request_error",
+				},
+			})
+			return
+		}
+	} else if inputResult.IsArray() {
+		arr := inputResult.Array()
+		if len(arr) == 0 {
+			c.JSON(http.StatusBadRequest, handlers.ErrorResponse{
+				Error: handlers.ErrorDetail{
+					Message: "input must not be an empty array",
+					Type:    "invalid_request_error",
+				},
+			})
+			return
+		}
 	}
 
 	c.Header("Content-Type", "application/json")
