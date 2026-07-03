@@ -2,7 +2,7 @@ name: Sync Upstream
 
 on:
   schedule:
-    - cron: "0 0 * * *" # 每天 UTC 00:00（北京时间 08:00）
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:
@@ -25,15 +25,13 @@ jobs:
           git remote add upstream https://github.com/router-for-me/CLIProxyAPI.git
           git fetch upstream main
 
-      - name: Check for upstream changes
+      - name: Check for changes
         id: check
         run: |
           if git diff --quiet HEAD upstream/main; then
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No upstream changes."
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Upstream has new commits."
           fi
 
       - name: Merge upstream
@@ -61,8 +59,8 @@ jobs:
           format: markdown
           message: |
             ⚠️ *CLIProxyAPI 上游同步失败*
-            📦 `vfhky/CLIProxyAPI`
-            🌿 `feat/embeddings` ← `upstream/main`
+            📦 vfhky/CLIProxyAPI
+            🌿 feat/embeddings ← upstream/main
             🔗 [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Notify sync success
@@ -74,6 +72,6 @@ jobs:
           format: markdown
           message: |
             🔄 *CLIProxyAPI 上游同步完成*
-            ✅ `upstream/main` → `feat/embeddings`
+            ✅ upstream/main → feat/embeddings
             🚀 Docker 构建自动触发中…
             🔗 [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
