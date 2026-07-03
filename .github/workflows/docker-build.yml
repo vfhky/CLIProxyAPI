@@ -135,11 +135,10 @@ jobs:
               "${REG}:${SHA}-arm64"
           done
 
-      - name: Cleanup temporary platform tags
+      - name: Note: platform tags retained
         if: always()
         run: |
-          # 删除临时 amd64/arm64 标签，保留 manifest 标签
-          echo "Temporary platform tags can be cleaned manually if needed."
+          echo "Temporary platform tags (amd64/arm64) are retained alongside the multi-arch manifest tags."
 
   notify:
     runs-on: ubuntu-latest
@@ -148,6 +147,7 @@ jobs:
     steps:
       - name: Calculate duration
         id: duration
+        continue-on-error: true
         run: |
           START_TS=$(date -d "$(curl -s -H 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' \
             -H 'Accept: application/vnd.github+json' \
@@ -168,12 +168,12 @@ jobs:
             ✅ *CLIProxyAPI Docker Build Success*
             🌿 `feat/embeddings`
             🏷 `latest` `${{ github.sha }}`
-            ⏱ ${{ steps.duration.outputs.elapsed }}
+            ⏱ ${{ steps.duration.outputs.elapsed || 'N/A' }}
             📝 ${{ github.event.head_commit.message || github.event.commits[0].message || 'manual trigger' }}
             🔗 [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Notify build failure
-        if: needs.manifest.result != 'success'
+        if: needs.manifest.result == 'failure'
         uses: appleboy/telegram-action@master
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -183,6 +183,6 @@ jobs:
             ❌ *CLIProxyAPI Docker Build Failed*
             🌿 `feat/embeddings`
             🏷 `${{ github.sha }}`
-            ⏱ ${{ steps.duration.outputs.elapsed }}
+            ⏱ ${{ steps.duration.outputs.elapsed || 'N/A' }}
             📝 ${{ github.event.head_commit.message || github.event.commits[0].message || 'manual trigger' }}
             🔗 [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

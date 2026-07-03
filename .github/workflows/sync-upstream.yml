@@ -37,12 +37,22 @@ jobs:
           fi
 
       - name: Merge upstream
+        id: merge_step
         if: steps.check.outputs.changed == 'true'
         run: |
           git merge upstream/main -m "chore: merge upstream/main"
+
+      - name: Abort merge on failure
+        if: failure() && steps.merge_step.outcome == 'failure'
+        run: |
+          git merge --abort
+
+      - name: Push changes
+        if: steps.merge_step.outcome == 'success'
+        run: |
           git push origin feat/embeddings
 
-      - name: Notify merge conflict
+      - name: Notify sync failure
         if: failure()
         uses: appleboy/telegram-action@master
         with:
@@ -50,7 +60,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
           message: |
-            ⚠️ *CLIProxyAPI 上游合并冲突*
+            ⚠️ *CLIProxyAPI 上游同步失败*
             📦 `vfhky/CLIProxyAPI`
             🌿 `feat/embeddings` ← `upstream/main`
             🔗 [查看日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
