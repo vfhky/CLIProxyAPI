@@ -6,6 +6,10 @@ on:
       - feat/embeddings
   workflow_dispatch:
 
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   IMAGE_NAME: cliproxyapi
 
