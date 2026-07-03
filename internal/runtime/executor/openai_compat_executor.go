@@ -22,6 +22,7 @@ import (
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v7/sdk/translator"
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -130,6 +131,7 @@ func (e *OpenAICompatExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 	}
 	reporter.SetTranslatedReasoningEffort(translated, to.String())
 
+	endpoint = detectEndpoint(translated)
 	url := strings.TrimSuffix(baseURL, "/") + endpoint
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(translated))
 	if err != nil {
@@ -795,3 +797,16 @@ func (e statusErr) Error() string {
 }
 func (e statusErr) StatusCode() int            { return e.code }
 func (e statusErr) RetryAfter() *time.Duration { return e.retryAfter }
+
+func detectEndpoint(payload []byte) string {
+	if gjson.GetBytes(payload, "messages").Exists() {
+		return "/chat/completions"
+	}
+	if gjson.GetBytes(payload, "input").Exists() {
+		return "/embeddings"
+	}
+	if gjson.GetBytes(payload, "prompt").Exists() {
+		return "/completions"
+	}
+	return "/chat/completions"
+}
