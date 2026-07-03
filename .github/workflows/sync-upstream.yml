@@ -14,6 +14,7 @@ jobs:
         with:
           ref: feat/embeddings
           fetch-depth: 0
+          token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Configure Git
         run: |
@@ -48,7 +49,7 @@ jobs:
       - name: Push changes
         if: steps.merge_step.outcome == 'success'
         run: |
-          git push origin feat/embeddings
+          git push https://vfhky:${{ secrets.GHCR_TOKEN }}@github.com/vfhky/CLIProxyAPI.git feat/embeddings
 
       - name: Notify sync failure
         if: failure()
