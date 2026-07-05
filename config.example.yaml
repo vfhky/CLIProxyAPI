@@ -41,6 +41,19 @@ api-keys:
   - "your-api-key-2"
   - "your-api-key-3"
 
+# api-key-entries: (optional) API keys with per-key model restrictions.
+# Keys listed here must NOT also appear in api-keys above.
+# api-key-entries:
+#   - key: "sk-restricted-team-a-xxx"
+#     allowed-models:
+#       - "gemini-*"
+#       - "gpt-5-codex"
+#       - "claude-sonnet-*"
+#   - key: "sk-restricted-team-b-xxx"
+#     allowed-models:
+#       - "claude-opus-*"
+#       - "*-preview"
+
 # Enable debug logging
 debug: false
 

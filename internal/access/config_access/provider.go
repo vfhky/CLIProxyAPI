@@ -17,6 +17,16 @@ func Register(cfg *sdkconfig.SDKConfig) {
 	}
 
 	keys := normalizeKeys(cfg.APIKeys)
+
+	// Also register keys from APIKeyEntries so that entries with model
+	// restrictions are still accepted as valid credentials.
+	for i := range cfg.APIKeyEntries {
+		key := strings.TrimSpace(cfg.APIKeyEntries[i].Key)
+		if key != "" {
+			keys = append(keys, key)
+		}
+	}
+
 	if len(keys) == 0 {
 		sdkaccess.UnregisterProvider(sdkaccess.AccessProviderTypeConfigAPIKey)
 		return

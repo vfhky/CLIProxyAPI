@@ -1220,3 +1220,133 @@ func sanitizedOAuthModelAlias(entries map[string][]config.OAuthModelAlias) map[s
 	}
 	return cfg.OAuthModelAlias
 }
+
+// api-key-entries management
+
+// GetAPIKeyEntries returns the current api-key-entries list.
+func (h *Handler) GetAPIKeyEntries(c *gin.Context) {
+	c.JSON(200, gin.H{"api-key-entries": h.cfg.APIKeyEntries})
+}
+
+// PutAPIKeyEntries replaces the full api-key-entries list.
+func (h *Handler) PutAPIKeyEntries(c *gin.Context) {
+	data, err := c.GetRawData()
+	if err != nil {
+		c.JSON(400, gin.H{"error": "failed to read body"})
+		return
+	}
+	var entries []config.APIKeyEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		var obj struct {
+			Entries []config.APIKeyEntry `json:"api-key-entries"`
+		}
+		if err2 := json.Unmarshal(data, &obj); err2 != nil || len(obj.Entries) == 0 {
+			c.JSON(400, gin.H{"error": "invalid body"})
+			return
+		}
+		entries = obj.Entries
+	}
+	h.mu.Lock()
+	h.cfg.APIKeyEntries = append([]config.APIKeyEntry(nil), entries...)
+	h.cfg.SanitizeAPIKeyEntries()
+	h.mu.Unlock()
+	h.persist(c)
+}
+
+// PatchAPIKeyEntry updates a single api-key-entry by index or match (on key).
+// Follows the PatchGeminiKey template: pointer-patch struct, Index-or-Match
+// target lookup, per-field pointer-guarded assignment.
+func (h *Handler) PatchAPIKeyEntry(c *gin.Context) {
+	type apiKeyEntryPatch struct {
+		Key           *string   `json:"key"`
+		AllowedModels *[]string `json:"allowed-models"`
+	}
+	var body struct {
+		Index *int              `json:"index"`
+		Match *string           `json:"match"`
+		Value *apiKeyEntryPatch `json:"value"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.Value == nil {
+		c.JSON(400, gin.H{"error": "invalid body"})
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	targetIndex := -1
+	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.APIKeyEntries) {
+		targetIndex = *body.Index
+	}
+	if targetIndex == -1 && body.Match != nil {
+		match := strings.TrimSpace(*body.Match)
+		if match != "" {
+			for i := range h.cfg.APIKeyEntries {
+				if h.cfg.APIKeyEntries[i].Key == match {
+					targetIndex = i
+					break
+				}
+			}
+		}
+	}
+	if targetIndex == -1 {
+		c.JSON(404, gin.H{"error": "item not found"})
+		return
+	}
+
+	entry := &h.cfg.APIKeyEntries[targetIndex]
+	if body.Value.Key != nil {
+		trimmed := strings.TrimSpace(*body.Value.Key)
+		if trimmed == "" {
+			h.cfg.APIKeyEntries = append(h.cfg.APIKeyEntries[:targetIndex], h.cfg.APIKeyEntries[targetIndex+1:]...)
+			h.cfg.SanitizeAPIKeyEntries()
+			h.persistLocked(c)
+			return
+		}
+		entry.Key = trimmed
+	}
+	if body.Value.AllowedModels != nil {
+		entry.AllowedModels = append([]string(nil), *body.Value.AllowedModels...)
+	}
+	normalizeAPIKeyEntry(entry)
+	h.cfg.SanitizeAPIKeyEntries()
+	h.persistLocked(c)
+}
+
+// DeleteAPIKeyEntry removes a single api-key-entry by index or key value.
+func (h *Handler) DeleteAPIKeyEntry(c *gin.Context) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if idxStr := c.Query("index"); idxStr != "" {
+		var idx int
+		_, err := fmt.Sscanf(idxStr, "%d", &idx)
+		if err == nil && idx >= 0 && idx < len(h.cfg.APIKeyEntries) {
+			h.cfg.APIKeyEntries = append(h.cfg.APIKeyEntries[:idx], h.cfg.APIKeyEntries[idx+1:]...)
+			h.cfg.SanitizeAPIKeyEntries()
+			h.persistLocked(c)
+			return
+		}
+	}
+	if val := strings.TrimSpace(c.Query("value")); val != "" {
+		out := make([]config.APIKeyEntry, 0, len(h.cfg.APIKeyEntries))
+		for _, v := range h.cfg.APIKeyEntries {
+			if v.Key != val {
+				out = append(out, v)
+			}
+		}
+		h.cfg.APIKeyEntries = out
+		h.cfg.SanitizeAPIKeyEntries()
+		h.persistLocked(c)
+		return
+	}
+	c.JSON(400, gin.H{"error": "missing index or value"})
+}
+
+// normalizeAPIKeyEntry normalizes a single APIKeyEntry by trimming whitespace
+// on the key field. The AllowedModels normalization is handled by
+// SanitizeAPIKeyEntries which is called on persist.
+func normalizeAPIKeyEntry(entry *config.APIKeyEntry) {
+	if entry == nil {
+		return
+	}
+	entry.Key = strings.TrimSpace(entry.Key)
+}

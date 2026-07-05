@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/router-for-me/CLIProxyAPI/v7/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v7/internal/thinking"
 	sdkpluginstore "github.com/router-for-me/CLIProxyAPI/v7/sdk/pluginstore"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
@@ -779,6 +780,9 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 	// Sanitize Gemini API key configuration and migrate legacy entries.
 	cfg.SanitizeGeminiKeys()
 
+	// Sanitize API key entries with model restrictions.
+	cfg.SanitizeAPIKeyEntries()
+
 	// Sanitize Vertex-compatible API keys.
 	cfg.SanitizeVertexCompatKeys()
 
@@ -1038,6 +1042,73 @@ func (cfg *Config) SanitizeGeminiKeys() {
 		out = append(out, entry)
 	}
 	cfg.GeminiKey = out
+}
+
+// SanitizeAPIKeyEntries normalizes API key entries with model restrictions.
+// It trims whitespace on Key, lowercases and deduplicates AllowedModels patterns,
+// strips thinking suffixes from patterns, and drops entries with empty keys.
+func (cfg *Config) SanitizeAPIKeyEntries() {
+	if cfg == nil || len(cfg.APIKeyEntries) == 0 {
+		return
+	}
+	out := make([]APIKeyEntry, 0, len(cfg.APIKeyEntries))
+	seenKeys := make(map[string]struct{}, len(cfg.APIKeyEntries))
+	for i := range cfg.APIKeyEntries {
+		entry := cfg.APIKeyEntries[i]
+		entry.Key = strings.TrimSpace(entry.Key)
+		if entry.Key == "" {
+			continue
+		}
+		if _, exists := seenKeys[entry.Key]; exists {
+			continue
+		}
+		seenKeys[entry.Key] = struct{}{}
+		entry.AllowedModels = normalizeAllowedModels(entry.AllowedModels)
+		out = append(out, entry)
+	}
+	cfg.APIKeyEntries = out
+}
+
+// normalizeAllowedModels normalizes model name patterns for case-insensitive matching.
+// Each pattern is trimmed, lowercased, and has its thinking suffix stripped.
+// Empty patterns and duplicates are dropped.
+func normalizeAllowedModels(patterns []string) []string {
+	if len(patterns) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(patterns))
+	out := make([]string, 0, len(patterns))
+	for _, raw := range patterns {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		lowered := strings.ToLower(trimmed)
+		// Strip thinking suffix from pattern so "claude-sonnet(16384)" becomes "claude-sonnet"
+		if stripped := thinking.ParseSuffix(lowered).ModelName; stripped != "" {
+			lowered = stripped
+		}
+		if _, exists := seen[lowered]; exists {
+			continue
+		}
+		seen[lowered] = struct{}{}
+		out = append(out, lowered)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// LookupAPIKeyEntry finds an API key entry by its Key value.
+// Returns nil if no entry with the given key exists.
+func (cfg *Config) LookupAPIKeyEntry(apiKey string) *APIKeyEntry {
+	for i := range cfg.APIKeyEntries {
+		if cfg.APIKeyEntries[i].Key == apiKey {
+			return &cfg.APIKeyEntries[i]
+		}
+	}
+	return nil
 }
 
 func normalizeModelPrefix(prefix string) string {
