@@ -14,7 +14,7 @@ jobs:
         with:
           ref: feat/embeddings
           fetch-depth: 0
-          token: ${{ secrets.GHCR_TOKEN }}
+          persist-credentials: false
 
       - name: Configure Git
         run: |
