@@ -103,7 +103,7 @@ func TestGetRequestDetails_PreservesSuffix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			providers, model, errMsg := handler.getRequestDetails(context.Background(), tt.inputModel)
+			providers, model, errMsg := handler.getRequestDetails(tt.inputModel)
 			if (errMsg != nil) != tt.wantErr {
 				t.Fatalf("getRequestDetails() error = %v, wantErr %v", errMsg, tt.wantErr)
 			}
@@ -134,7 +134,7 @@ func TestGetRequestDetails_ImageModelReturns503(t *testing.T) {
 	}
 	for _, model := range imageOnlyModels {
 		t.Run(model, func(t *testing.T) {
-			_, _, errMsg := handler.getRequestDetails(context.Background(), model)
+			_, _, errMsg := handler.getRequestDetails(model)
 			if errMsg == nil {
 				t.Fatalf("expected error for %s, got nil", model)
 			}
