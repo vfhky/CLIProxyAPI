@@ -417,6 +417,7 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 		claudeInputTokens := helps.NewClaudeInputTokenState(from, to, responseFormat, originalPayload)
 		var param any
 		var streamUsage helps.StreamUsageBuffer
+		var seenDone bool
 		defer streamUsage.Publish(ctx, reporter)
 		for scanner.Scan() {
 			line := scanner.Bytes()
@@ -445,6 +446,12 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 				continue
 			}
 
+			// OpenAI SSE treats data: [DONE] as the terminal event. Process it once,
+			// then stop so trailing non-spec chunks (e.g. cost metadata after DONE)
+			// are not reordered ahead of the handler-emitted terminal marker.
+			dataPayload := bytes.TrimSpace(trimmedLine[len("data:"):])
+			isDone := bytes.Equal(dataPayload, []byte("[DONE]"))
+
 			// OpenAI-compatible streams must use SSE data lines.
 			chunks := helps.TranslateStreamWithClaudeInputTokens(ctx, to, responseFormat, req.Model, opts.OriginalRequest, translated, bytes.Clone(trimmedLine), &param, claudeInputTokens)
 			for i := range chunks {
@@ -454,6 +461,10 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 					return
 				}
 			}
+			if isDone {
+				seenDone = true
+				break
+			}
 		}
 		if errScan := scanner.Err(); errScan != nil {
 			helps.RecordAPIResponseError(ctx, e.cfg, errScan)
@@ -462,8 +473,8 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 			case out <- cliproxyexecutor.StreamChunk{Err: errScan}:
 			case <-ctx.Done():
 			}
-		} else {
-			// In case the upstream close the stream without a terminal [DONE] marker.
+		} else if !seenDone {
+			// Upstream closed without a terminal [DONE] marker.
 			// Feed a synthetic done marker through the translator so pending
 			// response.completed events are still emitted exactly once.
 			chunks := helps.TranslateStreamWithClaudeInputTokens(ctx, to, responseFormat, req.Model, opts.OriginalRequest, translated, []byte("data: [DONE]"), &param, claudeInputTokens)
